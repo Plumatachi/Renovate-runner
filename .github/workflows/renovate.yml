@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         repo:
-          - Plumatachi/pokedex
+          - Plumatachi/bookly
     steps:
       - name: Checkout repo cible
         uses: actions/checkout@v4

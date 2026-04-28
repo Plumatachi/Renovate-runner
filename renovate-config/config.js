@@ -2,7 +2,7 @@ module.exports = {
     platform: 'github',
     // endpoint: 'https://ton-gitlab.com/api/v4',
     repositories: [
-        'Plumatachi/pokedex',
+        'Plumatachi/bookly',
     ],
     onboarding: false,
     requireConfig: 'optional',
