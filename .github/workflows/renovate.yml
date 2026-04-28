@@ -36,4 +36,4 @@ jobs:
           scan-ref: .
           format: table
           exit-code: 0      # 0 = la pipeline continue même si des vulnérabilités sont trouvées
-          severity: CRITICAL, HIGH
+          severity: CRITICAL,HIGH
