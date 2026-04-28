@@ -15,3 +15,25 @@ jobs:
         with:
           configurationFile: renovate-config/config.js
           token: ${{ secrets.RENOVATE_TOKEN }}
+
+  trivy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo:
+          - Plumatachi/pokedex
+    steps:
+      - name: Checkout repo cible
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repo }}
+          token: ${{ secrets.RENOVATE_TOKEN }}
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: 0      # 0 = la pipeline continue même si des vulnérabilités sont trouvées
+          severity: CRITICAL, HIGH
