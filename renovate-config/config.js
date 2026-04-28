@@ -4,8 +4,8 @@ module.exports = {
     autodiscoverFilter: ['Plumatachi/*'],       // permet de filtrer les dépôts à découvrir
     repositories: [
         'Plumatachi/bookly',
-        'Plumatachi/ETNAir',
-        'Plumatachi/blog-manager'
+        'Plumatachi/SAE_Python',
+        'Plumatachi/Space_Invaders'
     ],
     onboarding: false,
     requireConfig: 'optional',

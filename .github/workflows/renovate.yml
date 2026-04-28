@@ -22,8 +22,8 @@ jobs:
       matrix:
         repo:
           - Plumatachi/bookly
-          - Plumatachi/ETNAir
-          - Plumatachi/blog-manager
+          - Plumatachi/SAE_Python
+          - Plumatachi/Space_Invaders
     steps:
       - name: Checkout repo cible
         uses: actions/checkout@v4
