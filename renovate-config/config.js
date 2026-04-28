@@ -10,6 +10,7 @@ module.exports = {
     automerge: false,          // validation manuelle des MR
     labels: ['renovate'],
     logLevel: 'debug',
+    recreateClosed: true,      // permet de re-créer les MR fermées (seulement pour les tests)
 
     // Fréquence : une fois par semaine
     schedule: ['on monday'],
