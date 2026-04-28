@@ -22,6 +22,8 @@ jobs:
       matrix:
         repo:
           - Plumatachi/bookly
+          - Plumatachi/ETNAir
+          - Plumatachi/blog-manager
     steps:
       - name: Checkout repo cible
         uses: actions/checkout@v4
