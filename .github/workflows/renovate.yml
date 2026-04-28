@@ -36,6 +36,13 @@ jobs:
         with:
           scan-type: fs
           scan-ref: .
-          format: table
-          exit-code: 0      # 0 = la pipeline continue même si des vulnérabilités sont trouvées
+          format: template
+          template: '@/contrib/html.tpl'
+          output: trivy-report.html
           severity: CRITICAL,HIGH
+
+      - name: Upload rapport Trivy
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report-${{ matrix.repo }}
+          path: trivy-report.html
