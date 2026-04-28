@@ -1,14 +1,32 @@
 module.exports = {
     platform: 'github',
-    // endpoint: 'https://ton-gitlab.com/api/v4',
+    autodiscover: false,       // ne pas découvrir automatiquement des dépôts (temporaire)
+    autodiscoverFilter: ['Plumatachi/*'],       // permet de filtrer les dépôts à découvrir
     repositories: [
         'Plumatachi/bookly',
     ],
     onboarding: false,
     requireConfig: 'optional',
-    automerge: false,        // validation manuelle des MR
+    automerge: false,          // validation manuelle des MR
     labels: ['renovate'],
     logLevel: 'debug',
-    // regrouper les updates non-critiques en une seule MR
-    groupName: 'all non-major dependencies',
+
+    // Fréquence : une fois par semaine
+    schedule: ['on monday'],
+
+    // Regroupement par type de mise à jour
+    packageRules: [
+        {
+            matchUpdateTypes: ['patch'],
+            groupName: 'patch updates',
+        },
+        {
+            matchUpdateTypes: ['minor'],
+            groupName: 'minor updates',
+        },
+        {
+            matchUpdateTypes: ['major'],
+            groupName: 'major updates',
+        },
+    ],
 };
