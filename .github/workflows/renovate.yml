@@ -3,7 +3,7 @@ name: Renovate
 on:
   schedule:
     - cron: '0 2 * * 1'   # chaque lundi à 2h
-  workflow_dispatch:        # équivalent du déclenchement manuel
+  workflow_dispatch:
 
 jobs:
   renovate:
@@ -27,13 +27,11 @@ jobs:
 
       - name: Scanner tous les repos et créer les issues
         run: |
-          # Récupère tous les repos accessibles avec le token
           REPOS=$(gh repo list --json nameWithOwner -q '.[].nameWithOwner' --limit 100)
 
           for REPO in $REPOS; do
             echo "🔍 Scan de $REPO..."
 
-            # Clone et scan
             gh repo clone "$REPO" repo-scan -- --depth=1
             trivy fs repo-scan \
               --severity CRITICAL,HIGH \
@@ -41,33 +39,66 @@ jobs:
               --format table \
               --output trivy-results.txt
 
-            # Crée le label si inexistant
             gh label create "trivy" \
               --repo "$REPO" \
               --description "Rapport de sécurité Trivy" \
               --color "e11d48" \
               || true
 
-            # Crée ou met à jour l'issue si vulnérabilités trouvées
             if grep -q "CRITICAL\|HIGH" trivy-results.txt; then
-              BODY=$(cat trivy-results.txt)
-              ISSUE=$(gh issue list --repo "$REPO" --label "trivy" --state open --json number -q '.[0].number')
 
-              if [ -z "$ISSUE" ]; then
-                gh issue create \
-                  --repo "$REPO" \
-                  --title "🔒 Rapport de sécurité Trivy" \
-                  --body "$BODY" \
-                  --label "trivy"
-              else
-                gh issue edit "$ISSUE" \
-                  --repo "$REPO" \
-                  --body "$BODY"
-              fi
+              # Construit le rapport Markdown
+              BODY=$(python3 << 'PYEOF'
+              import re, subprocess
+            
+            with open("trivy-results.txt") as f:
+              content = f.read()
+              
+              date = subprocess.check_output(['date', '+%d/%m/%Y à %Hh%M']).decode().strip()
+              output = [f"## 🔒 Rapport de sécurité Trivy\n\n> Généré automatiquement le {date}\n"]
+              
+              sections = re.split(r'\n(\S[^\n]*?\([^\n]*?\))\n=+\n', content)
+            
+            for i in range(1, len(sections), 2):
+              target = sections[i].strip()
+              table = sections[i+1].strip()
+              
+              output.append(f"### 📦 `{target}`\n")
+              
+              rows = [l for l in table.split('\n') if l.startswith('│') and '─' not in l]
+              for row in rows[1:]:
+                cols = [c.strip() for c in row.split('│')[1:-1]]
+                if len(cols) >= 7 and cols[0]:
+                  library, cve, severity, status, installed, fixed, title = cols[:7]
+                  emoji = "🔴" if severity == "CRITICAL" else "🟠"
+                  output.append(f"#### {emoji} {library} — `{cve}`")
+                  output.append(f"- **Sévérité** : {severity}")
+                        output.append(f"- **Version installée** : `{installed}`")
+                        output.append(f"- **Version corrigée** : `{fixed}`")
+                        output.append(f"- **Description** : {title.split('https://')[0].strip()}")
+                        output.append(f"- **Détails** : https://avd.aquasec.com/nvd/{cve.lower()}")
+                  output.append("")
+              
+              print('\n'.join(output))
+              PYEOF
+              )
+  
+            ISSUE=$(gh issue list --repo "$REPO" --label "trivy" --state open --json number -q '.[0].number')
+            
+            if [ -z "$ISSUE" ]; then
+            gh issue create \
+            --repo "$REPO" \
+            --title "🔒 Rapport de sécurité Trivy" \
+            --body "$BODY" \
+            --label "trivy"
             else
-              echo "✅ Aucune vulnérabilité détectée sur $REPO"
+            gh issue edit "$ISSUE" \
+            --repo "$REPO" \
+            --body "$BODY"
             fi
-
-            # Nettoyage avant le repo suivant
+            else
+            echo "✅ Aucune vulnérabilité détectée sur $REPO"
+            fi
+            
             rm -rf repo-scan trivy-results.txt
-          done
+            done
