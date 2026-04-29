@@ -1,10 +1,7 @@
 module.exports = {
     platform: 'github',
-    autodiscover: true,       // permet de découvrir automatiquement des dépôts
+    autodiscover: !process.env.RENOVATE_REPOSITORIES,       // permet de découvrir automatiquement des dépôts
     autodiscoverFilter: ['Plumatachi/*'],       // permet de filtrer les dépôts à découvrir
-    // repositories: [
-    //     'Plumatachi/bookly',
-    // ],
     onboarding: false,
     requireConfig: 'optional',
     automerge: false,          // validation manuelle des MR

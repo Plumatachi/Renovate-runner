@@ -20,6 +20,8 @@ jobs:
         with:
           configurationFile: renovate-config/config.js
           token: ${{ secrets.RENOVATE_TOKEN }}
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.event.inputs.repository }}
 
   trivy:
     runs-on: ubuntu-latest
