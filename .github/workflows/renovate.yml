@@ -18,57 +18,56 @@ jobs:
 
   trivy:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
     steps:
-      - name: Checkout repo cible
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ matrix.repo }}
-          token: ${{ secrets.RENOVATE_TOKEN }}
-
-      - name: Run Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: table
-          output: trivy-results.txt
-          exit-code: 0
-          severity: CRITICAL,HIGH
-
-      - name: Créer le label trivy si inexistant
-        env:
-          GH_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
-          REPO: ${{ matrix.repo }}
+      - name: Installer Trivy
         run: |
-          gh label create "trivy" \
-            --repo "$REPO" \
-            --description "Rapport de sécurité Trivy" \
-            --color "e11d48" \
-            || true   # ← ne fail pas si le label existe déjà
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-      - name: Créer ou mettre à jour l'issue
-        env:
-          GH_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
-          REPO: ${{ matrix.repo }}
+      - name: Scanner tous les repos et créer les issues
         run: |
-          BODY=$(cat trivy-results.txt)
+          # Récupère tous les repos accessibles avec le token
+          REPOS=$(gh repo list --json nameWithOwner -q '.[].nameWithOwner' --limit 100)
 
-          # Vérifie s'il y a des vulnérabilités détectées
-          if ! grep -q "CRITICAL\|HIGH" trivy-results.txt; then
-            echo "✅ Aucune vulnérabilité détectée sur $REPO, pas d'issue créée."
-            exit 0
-          fi
+          for REPO in $REPOS; do
+            echo "🔍 Scan de $REPO..."
 
-          ISSUE=$(gh issue list --repo "$REPO" --label "trivy" --state open --json number -q '.[0].number')
+            # Clone et scan
+            gh repo clone "$REPO" repo-scan -- --depth=1
+            trivy fs repo-scan \
+              --severity CRITICAL,HIGH \
+              --exit-code 0 \
+              --format table \
+              --output trivy-results.txt
 
-          if [ -z "$ISSUE" ]; then
-            gh issue create \
+            # Crée le label si inexistant
+            gh label create "trivy" \
               --repo "$REPO" \
-              --title "🔒 Rapport de sécurité Trivy" \
-              --body "$BODY" \
-              --label "trivy"
-          else
-            gh issue edit "$ISSUE" \
-              --repo "$REPO" \
-              --body "$BODY"
-          fi
+              --description "Rapport de sécurité Trivy" \
+              --color "e11d48" \
+              || true
+
+            # Crée ou met à jour l'issue si vulnérabilités trouvées
+            if grep -q "CRITICAL\|HIGH" trivy-results.txt; then
+              BODY=$(cat trivy-results.txt)
+              ISSUE=$(gh issue list --repo "$REPO" --label "trivy" --state open --json number -q '.[0].number')
+
+              if [ -z "$ISSUE" ]; then
+                gh issue create \
+                  --repo "$REPO" \
+                  --title "🔒 Rapport de sécurité Trivy" \
+                  --body "$BODY" \
+                  --label "trivy"
+              else
+                gh issue edit "$ISSUE" \
+                  --repo "$REPO" \
+                  --body "$BODY"
+              fi
+            else
+              echo "✅ Aucune vulnérabilité détectée sur $REPO"
+            fi
+
+            # Nettoyage avant le repo suivant
+            rm -rf repo-scan trivy-results.txt
+          done
