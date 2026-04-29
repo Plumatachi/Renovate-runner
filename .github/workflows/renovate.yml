@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       repository:
-        description: 'Repo à scanner - laisser vide pour scanner tous les repos'
+        description: 'Repo à scanner — laisser vide pour scanner tous les repos'
         required: false
         default: ''
 
@@ -66,8 +66,18 @@ jobs:
           PYEOF
 
       - name: Scanner tous les repos et créer les issues
+        env:
+          INPUT_REPO: ${{ github.event.inputs.repository }}
         run: |
-          REPOS=$(gh repo list --json nameWithOwner -q '.[].nameWithOwner' --limit 100)
+          # Si un repo est précisé manuellement, on scanne uniquement celui-là
+          # Sinon, on récupère tous les repos accessibles avec le token
+          if [ -n "$INPUT_REPO" ]; then
+            echo "🎯 Scan manuel sur $INPUT_REPO uniquement"
+            REPOS="$INPUT_REPO"
+          else
+            echo "🔍 Autodiscover — scan de tous les repos accessibles"
+            REPOS=$(gh repo list --json nameWithOwner -q '.[].nameWithOwner' --limit 100)
+          fi
 
           for REPO in $REPOS; do
             echo "🔍 Scan de $REPO..."
