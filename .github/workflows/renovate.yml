@@ -38,18 +38,19 @@ jobs:
       - name: Créer ou mettre à jour l'issue
         env:
           GH_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+          REPO: ${{ matrix.repo }}
         run: |
           BODY=$(cat trivy-results.txt)
-          ISSUE=$(gh issue list --repo ${{ matrix.repo }} --label trivy --json number -q '.[0].number')
+          ISSUE=$(gh issue list --repo "$REPO" --label "trivy" --state open --json number -q '.[0].number')
 
           if [ -z "$ISSUE" ]; then
             gh issue create \
-              --repo ${{ matrix.repo }} \
+              --repo "$REPO" \
               --title "🔒 Rapport de sécurité Trivy" \
               --body "$BODY" \
-              --label trivy
+              --label "trivy"
           else
-            gh issue edit $ISSUE \
-              --repo ${{ matrix.repo }} \
+            gh issue edit "$ISSUE" \
+              --repo "$REPO" \
               --body "$BODY"
           fi
