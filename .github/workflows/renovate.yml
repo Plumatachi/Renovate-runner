@@ -52,6 +52,13 @@ jobs:
           REPO: ${{ matrix.repo }}
         run: |
           BODY=$(cat trivy-results.txt)
+
+          # Vérifie s'il y a des vulnérabilités détectées
+          if ! grep -q "CRITICAL\|HIGH" trivy-results.txt; then
+            echo "✅ Aucune vulnérabilité détectée sur $REPO, pas d'issue créée."
+            exit 0
+          fi
+
           ISSUE=$(gh issue list --repo "$REPO" --label "trivy" --state open --json number -q '.[0].number')
 
           if [ -z "$ISSUE" ]; then
