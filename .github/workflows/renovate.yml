@@ -2,7 +2,7 @@ name: Renovate
 
 on:
   schedule:
-    - cron: '0 2 * * *'   # chaque nuit à 2h
+    - cron: '0 2 * * 1'   # chaque lundi à 2h
   workflow_dispatch:        # équivalent du déclenchement manuel
 
 jobs:
@@ -18,12 +18,6 @@ jobs:
 
   trivy:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        repo:
-          - Plumatachi/bookly
-          - Plumatachi/SAE_Python
-          - Plumatachi/Space_Invaders
     steps:
       - name: Checkout repo cible
         uses: actions/checkout@v4
@@ -41,9 +35,21 @@ jobs:
           exit-code: 0
           severity: CRITICAL,HIGH
 
-      - name: Afficher dans le Job Summary
+      - name: Créer ou mettre à jour l'issue
+        env:
+          GH_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
         run: |
-          echo "## 🔒 Rapport Trivy" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat trivy-results.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          BODY=$(cat trivy-results.txt)
+          ISSUE=$(gh issue list --repo ${{ matrix.repo }} --label trivy --json number -q '.[0].number')
+
+          if [ -z "$ISSUE" ]; then
+            gh issue create \
+              --repo ${{ matrix.repo }} \
+              --title "🔒 Rapport de sécurité Trivy" \
+              --body "$BODY" \
+              --label trivy
+          else
+            gh issue edit $ISSUE \
+              --repo ${{ matrix.repo }} \
+              --body "$BODY"
+          fi
