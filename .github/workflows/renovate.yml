@@ -35,6 +35,17 @@ jobs:
           exit-code: 0
           severity: CRITICAL,HIGH
 
+      - name: Créer le label trivy si inexistant
+        env:
+          GH_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+          REPO: ${{ matrix.repo }}
+        run: |
+          gh label create "trivy" \
+            --repo "$REPO" \
+            --description "Rapport de sécurité Trivy" \
+            --color "e11d48" \
+            || true   # ← ne fail pas si le label existe déjà
+
       - name: Créer ou mettre à jour l'issue
         env:
           GH_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
