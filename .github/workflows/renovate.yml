@@ -25,6 +25,41 @@ jobs:
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
+      - name: Créer le script de formatage
+        run: |
+          cat << 'PYEOF' > format_trivy.py
+          import re, subprocess, sys
+
+          with open("trivy-results.txt") as f:
+              content = f.read()
+
+          date = subprocess.check_output(['date', '+%d/%m/%Y à %Hh%M']).decode().strip()
+          output = [f"## 🔒 Rapport de sécurité Trivy\n\n> Généré automatiquement le {date}\n"]
+
+          sections = re.split(r'\n(\S[^\n]*?\([^\n]*?\))\n=+\n', content)
+
+          for i in range(1, len(sections), 2):
+              target = sections[i].strip()
+              table = sections[i+1].strip()
+              output.append(f"### 📦 `{target}`\n")
+
+              rows = [l for l in table.split('\n') if l.startswith('│') and '─' not in l]
+              for row in rows[1:]:
+                  cols = [c.strip() for c in row.split('│')[1:-1]]
+                  if len(cols) >= 7 and cols[0]:
+                      library, cve, severity, status, installed, fixed, title = cols[:7]
+                      emoji = "🔴" if severity == "CRITICAL" else "🟠"
+                      output.append(f"#### {emoji} {library} — `{cve}`")
+                      output.append(f"- **Sévérité** : {severity}")
+                      output.append(f"- **Version installée** : `{installed}`")
+                      output.append(f"- **Version corrigée** : `{fixed}`")
+                      output.append(f"- **Description** : {title.split('https://')[0].strip()}")
+                      output.append(f"- **Détails** : https://avd.aquasec.com/nvd/{cve.lower()}")
+                      output.append("")
+
+          print('\n'.join(output))
+          PYEOF
+
       - name: Scanner tous les repos et créer les issues
         run: |
           REPOS=$(gh repo list --json nameWithOwner -q '.[].nameWithOwner' --limit 100)
@@ -46,59 +81,24 @@ jobs:
               || true
 
             if grep -q "CRITICAL\|HIGH" trivy-results.txt; then
+              BODY=$(python3 format_trivy.py)
 
-              # Construit le rapport Markdown
-              BODY=$(python3 << 'PYEOF'
-              import re, subprocess
-            
-            with open("trivy-results.txt") as f:
-              content = f.read()
-              
-              date = subprocess.check_output(['date', '+%d/%m/%Y à %Hh%M']).decode().strip()
-              output = [f"## 🔒 Rapport de sécurité Trivy\n\n> Généré automatiquement le {date}\n"]
-              
-              sections = re.split(r'\n(\S[^\n]*?\([^\n]*?\))\n=+\n', content)
-            
-            for i in range(1, len(sections), 2):
-              target = sections[i].strip()
-              table = sections[i+1].strip()
-              
-              output.append(f"### 📦 `{target}`\n")
-              
-              rows = [l for l in table.split('\n') if l.startswith('│') and '─' not in l]
-              for row in rows[1:]:
-                cols = [c.strip() for c in row.split('│')[1:-1]]
-                if len(cols) >= 7 and cols[0]:
-                  library, cve, severity, status, installed, fixed, title = cols[:7]
-                  emoji = "🔴" if severity == "CRITICAL" else "🟠"
-                  output.append(f"#### {emoji} {library} — `{cve}`")
-                  output.append(f"- **Sévérité** : {severity}")
-                        output.append(f"- **Version installée** : `{installed}`")
-                        output.append(f"- **Version corrigée** : `{fixed}`")
-                        output.append(f"- **Description** : {title.split('https://')[0].strip()}")
-                        output.append(f"- **Détails** : https://avd.aquasec.com/nvd/{cve.lower()}")
-                  output.append("")
-              
-              print('\n'.join(output))
-              PYEOF
-              )
-  
-            ISSUE=$(gh issue list --repo "$REPO" --label "trivy" --state open --json number -q '.[0].number')
-            
-            if [ -z "$ISSUE" ]; then
-            gh issue create \
-            --repo "$REPO" \
-            --title "🔒 Rapport de sécurité Trivy" \
-            --body "$BODY" \
-            --label "trivy"
+              ISSUE=$(gh issue list --repo "$REPO" --label "trivy" --state open --json number -q '.[0].number')
+
+              if [ -z "$ISSUE" ]; then
+                gh issue create \
+                  --repo "$REPO" \
+                  --title "🔒 Rapport de sécurité Trivy" \
+                  --body "$BODY" \
+                  --label "trivy"
+              else
+                gh issue edit "$ISSUE" \
+                  --repo "$REPO" \
+                  --body "$BODY"
+              fi
             else
-            gh issue edit "$ISSUE" \
-            --repo "$REPO" \
-            --body "$BODY"
+              echo "✅ Aucune vulnérabilité détectée sur $REPO"
             fi
-            else
-            echo "✅ Aucune vulnérabilité détectée sur $REPO"
-            fi
-            
+
             rm -rf repo-scan trivy-results.txt
-            done
+          done
